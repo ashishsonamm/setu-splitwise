@@ -29,57 +29,15 @@ func InitDB() {
 }
 
 func createTables(db *sql.DB) {
-	query := `CREATE TABLE users (
-                       id SERIAL PRIMARY KEY,
-                       name VARCHAR(100) NOT NULL,
-                       email VARCHAR(100) UNIQUE NOT NULL,
-                       password VARCHAR(100),
-                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE groups (
-                        id SERIAL PRIMARY KEY,
-                        name VARCHAR(100) NOT NULL,
-                        created_by INT REFERENCES users(id) ON DELETE SET NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE group_users (
-                             id SERIAL PRIMARY KEY,
-                             group_id INT REFERENCES groups(id) ON DELETE CASCADE,
-                             user_id INT REFERENCES users(id) ON DELETE CASCADE,
-                             joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                             UNIQUE (group_id, user_id)
-);
-
-
-CREATE TABLE expenses (
-                          id SERIAL PRIMARY KEY,
-                          description TEXT NOT NULL,
-                          amount FLOAT NOT NULL,
-                          split_type VARCHAR(20) NOT NULL,
-                          expense_type VARCHAR(20) NOT NULL,
-                          created_by INT NOT NULL,
-                          group_id INT
-);
-
-CREATE TABLE contributors (
-                              id SERIAL PRIMARY KEY,
-                              expense_id INT REFERENCES expenses(id) ON DELETE CASCADE,
-                              user_id INT NOT NULL,
-                              contribution_amount FLOAT NOT NULL,
-                              paid_amount FLOAT,
-                              percentage FLOAT,
-                              share FLOAT,
-                              amount FLOAT
-);
-
-CREATE TABLE amounts_owed (
-                              id SERIAL PRIMARY KEY,
-                              expense_id INT REFERENCES expenses(id) ON DELETE CASCADE,
-                              user_id INT NOT NULL,
-                              owed FLOAT DEFAULT 0,
-                              balance FLOAT DEFAULT 0
+	query := `
+CREATE TABLE personal_settlements (
+                                   id SERIAL PRIMARY KEY,
+                                   debtor_id INT NOT NULL,
+                                   creditor_id INT NOT NULL,
+                                   amount FLOAT NOT NULL,
+                                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                   FOREIGN KEY (debtor_id) REFERENCES users(id) ON DELETE CASCADE,
+                                   FOREIGN KEY (creditor_id) REFERENCES users(id) ON DELETE CASCADE
 );`
 
 	_, err := db.Exec(query)
@@ -92,6 +50,8 @@ CREATE TABLE amounts_owed (
 
 func dropTables(db *sql.DB) {
 	query := `
+DROP TABLE IF EXISTS personal_settlements;
+	DROP TABLE IF EXISTS group_settlements;
    DROP TABLE IF EXISTS contributors;
    DROP TABLE IF EXISTS amounts_owed;
 DROP TABLE IF EXISTS expenses;

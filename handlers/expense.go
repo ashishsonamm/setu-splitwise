@@ -118,65 +118,73 @@ func totalShares(contributors []Contributor) float64 {
 	return total
 }
 
-func GetPersonalBalance(w http.ResponseWriter, r *http.Request) {
-	userIDStr := mux.Vars(r)["userId"]
-	userID, err := strconv.Atoi(userIDStr)
+func GetGroupExpenses(w http.ResponseWriter, r *http.Request) {
+	groupIDStr := mux.Vars(r)["groupId"]
+	groupID, err := strconv.Atoi(groupIDStr)
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
 
 	query := `
-		WITH personal_expenses AS (
-    SELECT e.id AS expense_id
-    FROM expenses e
-    JOIN contributors c ON e.id = c.expense_id
-    WHERE e.expense_type = 'personal' AND c.user_id = $1
-)
-
-SELECT 
-    c.user_id,
-    c.expense_id,
-    SUM(c.paid_amount - c.contribution_amount) AS balance
-FROM 
-    contributors c
-JOIN 
-    personal_expenses pe ON c.expense_id = pe.expense_id
-WHERE c.user_id != $1
-GROUP BY 
-    c.user_id, c.expense_id;
+		SELECT e.id, e.description, e.amount, e.split_type, e.expense_type, e.created_by,
+		       ao.user_id, ao.owed, c.contribution_amount, c.paid_amount, ao.balance
+		FROM expenses e
+		JOIN amounts_owed ao ON e.id = ao.expense_id
+		JOIN contributors c ON ao.expense_id = c.expense_id and ao.user_id = c.user_id
+		WHERE e.group_id = $1
 	`
 
-	rows, err := utils.DB.Query(query, userID)
+	rows, err := utils.DB.Query(query, groupID)
 	if err != nil {
-		http.Error(w, "Failed to fetch personal balance details", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch group expenses", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var balances []map[string]interface{}
+	expenses := make(map[int]map[string]interface{})
 	for rows.Next() {
-		var amount float64
-		var fromUser, expenseId int
+		var expenseID, createdBy, userID int
+		var description, splitType, expenseType string
+		var amount, owed, contributionAmount, paidAmount, balance float64
 
-		err := rows.Scan(&fromUser, &expenseId, &amount)
-		if err != nil {
-			http.Error(w, "Error scanning balance details", http.StatusInternalServerError)
+		if err := rows.Scan(&expenseID, &description, &amount, &splitType, &expenseType, &createdBy, &userID, &owed, &contributionAmount, &paidAmount, &balance); err != nil {
+			http.Error(w, "Failed to parse expense details", http.StatusInternalServerError)
 			return
 		}
 
-		balances = append(balances, map[string]interface{}{
-			"amount": amount,
-			"from":   fromUser,
-			"to":     userID,
-		})
+		if _, exists := expenses[expenseID]; !exists {
+			expenses[expenseID] = map[string]interface{}{
+				"id":           expenseID,
+				"description":  description,
+				"amount":       amount,
+				"split_type":   splitType,
+				"expense_type": expenseType,
+				"created_by":   createdBy,
+				"contributors": []map[string]interface{}{},
+			}
+		}
+
+		expenses[expenseID]["contributors"] = append(
+			expenses[expenseID]["contributors"].([]map[string]interface{}),
+			map[string]interface{}{
+				"user_id":             userID,
+				"contribution_amount": contributionAmount,
+				"paid_amount":         paidAmount,
+				"balance":             balance,
+			},
+		)
 	}
 
-	if err := rows.Err(); err != nil {
-		http.Error(w, "Error iterating over balance details", http.StatusInternalServerError)
+	if err = rows.Err(); err != nil {
+		http.Error(w, "Failed to fetch group expenses", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(balances)
+	var expenseList []map[string]interface{}
+	for _, expense := range expenses {
+		expenseList = append(expenseList, expense)
+	}
+
+	json.NewEncoder(w).Encode(expenseList)
 }

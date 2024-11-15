@@ -51,3 +51,25 @@ CREATE TABLE amounts_owed (
                               owed FLOAT DEFAULT 0,
                               balance FLOAT DEFAULT 0
 );
+
+CREATE TABLE group_settlements (
+                                   id SERIAL PRIMARY KEY,
+                                   group_id INT NOT NULL,
+                                   debtor_id INT NOT NULL,
+                                   creditor_id INT NOT NULL,
+                                   amount FLOAT NOT NULL,
+                                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                   FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+                                   FOREIGN KEY (debtor_id) REFERENCES users(id) ON DELETE CASCADE,
+                                   FOREIGN KEY (creditor_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE personal_settlements (
+                                   id SERIAL PRIMARY KEY,
+                                   debtor_id INT NOT NULL,
+                                   creditor_id INT NOT NULL,
+                                   amount FLOAT NOT NULL,
+                                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                   FOREIGN KEY (debtor_id) REFERENCES users(id) ON DELETE CASCADE,
+                                   FOREIGN KEY (creditor_id) REFERENCES users(id) ON DELETE CASCADE
+);

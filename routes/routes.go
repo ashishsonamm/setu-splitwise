@@ -24,8 +24,8 @@ func RegisterRoutes() *mux.Router {
 	api.HandleFunc("/expense", handlers.AddExpense).Methods("POST")
 	api.HandleFunc("/users/{userId}/balance", handlers.GetPersonalBalance).Methods("GET")
 
-	api.HandleFunc("/settle/{userId}/personal", handlers.SettlePersonalBalance).Methods("POST")
-	api.HandleFunc("/settle/{userId}/group/{groupId}", handlers.SettleGroupBalance).Methods("POST")
+	api.HandleFunc("/settle/personal", handlers.SettlePersonalBalance).Methods("POST")
+	api.HandleFunc("/settle/{groupId}/group/{user1Id}/{user2Id}", handlers.SettleGroupBalanceBetweenUsers).Methods("POST")
 
 	return router
 }
